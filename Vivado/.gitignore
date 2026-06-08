@@ -1,0 +1,54 @@
+# Vivado 생성 결과물
+*.jou
+*.log
+*.str
+
+# 합성/구현 결과물
+*.runs/
+*.cache/
+*.hw/
+*.ip_user_files/
+*.sim/
+*.gen/
+
+
+
+# 체크포인트
+*.dcp
+
+# 비트스트림
+*.bit
+*.bin
+
+# 리포트 파일
+*.rpt
+*.rpx
+*.pb
+
+# 기타 Vivado 생성 파일
+*.lpr
+*.vdi
+*.vds
+*.wdf
+*.wpc
+*.xml
+*.htr
+*.js
+*.sh
+*.bat
+runme.*
+rundef.*
+*.backup.jou
+.Xil/
+
+# Vivado 블록 디자인 UI 상태 파일 (열고 닫을 때마다 자동 변경)
+**/ui/*.ui
+
+# 백업 파일
+*.bak
+
+# Claude Code 내부 파일
+.claude/
+
+# CLAUDE.md
+CLAUDE.md

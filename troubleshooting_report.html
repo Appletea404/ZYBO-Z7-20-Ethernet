@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ZYBO Z7-20 Ethernet lwIP 개발 보고서</title>
+  <style>
+    :root {
+      --bg:       #0f1117;
+      --surface:  #1a1d27;
+      --card:     #22263a;
+      --border:   #2e3350;
+      --accent:   #5c7cfa;
+      --accent2:  #38d9a9;
+      --danger:   #ff6b6b;
+      --warn:     #fcc419;
+      --ok:       #51cf66;
+      --text:     #e8eaf6;
+      --muted:    #8892b0;
+      --code-bg:  #141824;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-size: 15px;
+      line-height: 1.7;
+    }
+
+    /* ── HEADER ── */
+    header {
+      background: linear-gradient(135deg, #1a1d27 0%, #12162a 100%);
+      border-bottom: 2px solid var(--accent);
+      padding: 3rem 2rem 2.5rem;
+      text-align: center;
+    }
+    header .badge {
+      display: inline-block;
+      background: var(--accent);
+      color: #fff;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 0.25rem 0.75rem;
+      border-radius: 999px;
+      margin-bottom: 1rem;
+    }
+    header h1 { font-size: 2rem; font-weight: 800; margin-bottom: 0.5rem; }
+    header p { color: var(--muted); font-size: 0.9rem; }
+
+    /* ── LAYOUT ── */
+    .container { max-width: 1100px; margin: 0 auto; padding: 2.5rem 1.5rem; }
+
+    /* ── SECTION TITLE ── */
+    .section-title {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--accent);
+      margin: 3rem 0 1.25rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .section-title .icon {
+      width: 32px; height: 32px;
+      background: var(--accent);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1rem;
+      flex-shrink: 0;
+    }
+
+    /* ── CARD ── */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1.25rem;
+    }
+    .card h3 {
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 0.75rem;
+      color: var(--text);
+    }
+
+    /* ── INFO GRID ── */
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .info-item {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem 1.25rem;
+    }
+    .info-item .label { color: var(--muted); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 0.3rem; }
+    .info-item .value { font-weight: 700; font-size: 0.95rem; }
+
+    /* ── ISSUE CARD ── */
+    .issue {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      margin-bottom: 1.5rem;
+      overflow: hidden;
+    }
+    .issue-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .issue-num {
+      width: 36px; height: 36px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 0.95rem; flex-shrink: 0;
+    }
+    .issue-num.red   { background: rgba(255,107,107,.18); color: var(--danger); border: 1.5px solid var(--danger); }
+    .issue-num.green { background: rgba(81,207,102,.15);  color: var(--ok);     border: 1.5px solid var(--ok); }
+    .issue-title { font-weight: 700; font-size: 1rem; }
+    .issue-body { padding: 1.25rem 1.5rem; }
+
+    .issue-section { margin-bottom: 1rem; }
+    .issue-section:last-child { margin-bottom: 0; }
+    .issue-section .tag {
+      display: inline-block;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0.2rem 0.65rem;
+      border-radius: 999px;
+      margin-bottom: 0.5rem;
+    }
+    .tag.err  { background: rgba(255,107,107,.18); color: var(--danger); }
+    .tag.cause{ background: rgba(252,196,25,.15);  color: var(--warn); }
+    .tag.fix  { background: rgba(56,217,169,.15);  color: var(--accent2); }
+    .tag.result{ background: rgba(92,124,250,.15); color: var(--accent); }
+
+    /* ── CODE ── */
+    pre, code {
+      font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+      font-size: 0.82rem;
+    }
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      overflow-x: auto;
+      line-height: 1.6;
+      margin: 0.6rem 0;
+    }
+    code {
+      background: rgba(92,124,250,.15);
+      color: #a5b4fc;
+      padding: 0.1em 0.4em;
+      border-radius: 4px;
+    }
+
+    /* ── TABLE ── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+      margin: 0.75rem 0;
+    }
+    th {
+      background: rgba(92,124,250,.12);
+      color: var(--accent);
+      font-weight: 700;
+      text-align: left;
+      padding: 0.6rem 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+    td {
+      padding: 0.6rem 1rem;
+      border-bottom: 1px solid rgba(46,51,80,.6);
+      vertical-align: top;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255,255,255,.03); }
+
+    /* ── FLOW ── */
+    .flow {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+    .flow-step {
+      display: flex;
+      gap: 1rem;
+      align-items: flex-start;
+    }
+    .flow-line {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    .flow-dot {
+      width: 14px; height: 14px; border-radius: 50%;
+      background: var(--accent);
+      flex-shrink: 0;
+      margin-top: 0.3rem;
+    }
+    .flow-dot.ok   { background: var(--ok); }
+    .flow-dot.warn { background: var(--warn); }
+    .flow-dot.err  { background: var(--danger); }
+    .flow-connector {
+      width: 2px;
+      flex: 1;
+      min-height: 20px;
+      background: var(--border);
+      margin: 4px 0;
+    }
+    .flow-content {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.65rem 1rem;
+      margin-bottom: 0.5rem;
+      flex: 1;
+      font-size: 0.9rem;
+    }
+    .flow-content strong { color: var(--accent2); }
+
+    /* ── CALLOUT ── */
+    .callout {
+      display: flex;
+      gap: 1rem;
+      background: rgba(92,124,250,.08);
+      border-left: 3px solid var(--accent);
+      border-radius: 0 8px 8px 0;
+      padding: 0.9rem 1.2rem;
+      margin: 0.75rem 0;
+      font-size: 0.9rem;
+    }
+    .callout.ok  { background: rgba(81,207,102,.07); border-color: var(--ok); }
+    .callout.warn{ background: rgba(252,196,25,.07); border-color: var(--warn); }
+    .callout.err { background: rgba(255,107,107,.07); border-color: var(--danger); }
+
+    /* ── FILE CHIP ── */
+    .file-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: rgba(92,124,250,.12);
+      color: #a5b4fc;
+      border: 1px solid rgba(92,124,250,.3);
+      border-radius: 6px;
+      padding: 0.2rem 0.65rem;
+      font-family: monospace;
+      font-size: 0.78rem;
+      margin: 0.2rem 0.1rem;
+    }
+
+    /* ── STATUS BADGE ── */
+    .status {
+      display: inline-flex; align-items: center; gap: 0.3rem;
+      padding: 0.2rem 0.7rem; border-radius: 999px;
+      font-size: 0.78rem; font-weight: 700;
+    }
+    .status.ok   { background: rgba(81,207,102,.15);  color: var(--ok); }
+    .status.fail { background: rgba(255,107,107,.15); color: var(--danger); }
+    .status.warn { background: rgba(252,196,25,.15);  color: var(--warn); }
+
+    /* ── SUMMARY BOX ── */
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 1rem;
+    }
+    .summary-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem;
+      display: flex; align-items: flex-start; gap: 1rem;
+    }
+    .summary-card .s-icon {
+      font-size: 1.75rem; flex-shrink: 0; margin-top: 0.1rem;
+    }
+    .summary-card .s-title { font-weight: 700; margin-bottom: 0.25rem; }
+    .summary-card .s-desc  { color: var(--muted); font-size: 0.85rem; }
+
+    /* ── FOOTER ── */
+    footer {
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.82rem;
+      padding: 2.5rem 1rem;
+      border-top: 1px solid var(--border);
+      margin-top: 3rem;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="badge">Troubleshooting Report</div>
+  <h1>ZYBO Z7-20 Ethernet lwIP Echo Server</h1>
+  <p>Vitis 2024.2 · SDT Build Flow · Zynq-7000 PS Cortex-A9 · RTL8211E-VL PHY · 2026-06-09</p>
+</header>
+
+<div class="container">
+
+  <!-- ══════════════════════════════════════════
+       1. 프로젝트 개요
+  ══════════════════════════════════════════ -->
+  <div class="section-title"><div class="icon">📋</div>1. 프로젝트 개요</div>
+
+  <div class="info-grid">
+    <div class="info-item"><div class="label">보드</div><div class="value">ZYBO Z7-20</div></div>
+    <div class="info-item"><div class="label">SoC</div><div class="value">Zynq-7000 (XC7Z020)</div></div>
+    <div class="info-item"><div class="label">CPU</div><div class="value">Cortex-A9 @ 667 MHz</div></div>
+    <div class="info-item"><div class="label">PHY</div><div class="value">RTL8211E-VL (RGMII-ID)</div></div>
+    <div class="info-item"><div class="label">EMAC</div><div class="value">PS GEM0 (0xE000B000)</div></div>
+    <div class="info-item"><div class="label">IDE</div><div class="value">Vitis 2024.2</div></div>
+    <div class="info-item"><div class="label">빌드 플로우</div><div class="value">SDT (-DSDT)</div></div>
+    <div class="info-item"><div class="label">TCP/IP</div><div class="value">lwIP 2.2.0 RAW API</div></div>
+    <div class="info-item"><div class="label">최종 목표</div><div class="value">TCP Echo Server 동작</div></div>
+    <div class="info-item"><div class="label">포트</div><div class="value">TCP 7번</div></div>
+    <div class="info-item"><div class="label">고정 IP</div><div class="value">192.168.1.10</div></div>
+    <div class="info-item"><div class="label">최종 상태</div><div class="value" style="color:var(--ok)">✓ 완전 동작</div></div>
+  </div>
+
+  <div class="card">
+    <h3>목표</h3>
+    <p>ZYBO Z7-20 보드에서 lwIP RAW API 기반의 TCP Echo Server를 동작시킨다. 클라이언트(PC)가 TCP로 데이터를 전송하면 보드가 그대로 돌려보내는 Callback 구조를 완성하는 것이 최종 목적이다.</p>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       2. 시스템 구성
+  ══════════════════════════════════════════ -->
+  <div class="section-title"><div class="icon">🔧</div>2. 시스템 구성 및 주요 파일</div>
+
+  <div class="card">
+    <h3>SDT 빌드 플로우란?</h3>
+    <p>Vitis 2024.2부터 도입된 새로운 BSP 생성 방식이다. 기존 <code>xparameters.h</code> 기반이 아닌 Device Tree(DTS)에서 하드웨어 정보를 읽어 CMake 기반으로 BSP를 생성한다. 컴파일 시 <code>-DSDT</code> 플래그가 추가된다.</p>
+    <br>
+    <div class="callout warn">
+      <div>⚠️ SDT 모드에서는 <code>#ifndef SDT</code>로 감싸진 기존 코드가 전부 비활성화된다. 이것이 이번 작업에서 발생한 대부분의 문제의 근본 원인이다.</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>핵심 파일 목록</h3>
+    <table>
+      <tr>
+        <th>파일</th>
+        <th>역할</th>
+        <th>수정 여부</th>
+      </tr>
+      <tr>
+        <td><span class="file-chip">src/main.c</span></td>
+        <td>메인 진입점 — 네트워크 초기화, DHCP 대기 루프, TCP 루프</td>
+        <td><span class="status ok">수정 없음</span></td>
+      </tr>
+      <tr>
+        <td><span class="file-chip">src/echo.c</span></td>
+        <td>TCP echo 서버 로직 — <code>recv_callback()</code>, <code>start_application()</code></td>
+        <td><span class="status ok">수정 없음</span></td>
+      </tr>
+      <tr>
+        <td><span class="file-chip">src/platform.c</span></td>
+        <td>SDT 모드 플랫폼 초기화 — 캐시, 타이머 설정</td>
+        <td><span class="status fail">수정 (Issue 4)</span></td>
+      </tr>
+      <tr>
+        <td><span class="file-chip">src/platform_zynq.c</span></td>
+        <td>비-SDT Zynq 플랫폼 초기화 (SCU 타이머, GIC)</td>
+        <td><span class="status warn">#ifndef SDT — 빌드 제외</span></td>
+      </tr>
+      <tr>
+        <td><span class="file-chip">bsp/.../xemacpsif_physpeed.c</span></td>
+        <td>PHY 속도 협상 — <code>get_Realtek_phy_speed()</code></td>
+        <td><span class="status fail">수정 (Issue 2, 3)</span></td>
+      </tr>
+      <tr>
+        <td><span class="file-chip">bsp/include/xtimer_config.h</span></td>
+        <td>xiltimer 설정 헤더 — tick/sleep 타이머 선택</td>
+        <td><span class="status ok">수정 없음 (분석만)</span></td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       3. 전체 흐름 (main.c 관점)
+  ══════════════════════════════════════════ -->
+  <div class="section-title"><div class="icon">🔄</div>3. 부팅 ~ 동작까지 전체 흐름</div>
+
+  <div class="flow">
+    <div class="flow-step">
+      <div class="flow-line"><div class="flow-dot ok"></div><div class="flow-connector"></div></div>
+      <div class="flow-content"><strong>init_platform()</strong> — 캐시 활성화, SCU 타이머 50ms 인터럽트 설정 (Issue 4에서 수정)</div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-line"><div class="flow-dot ok"></div><div class="flow-connector"></div></div>
+      <div class="flow-content"><strong>print_app_header()</strong> — "lwIP TCP echo server" 출력 (포트 표기는 코드 버그로 6001이라고 출력되지만 실제 포트는 7)</div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-line"><div class="flow-dot ok"></div><div class="flow-connector"></div></div>
+      <div class="flow-content"><strong>lwip_init()</strong> — lwIP 스택 초기화</div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-line"><div class="flow-dot warn"></div><div class="flow-connector"></div></div>
+      <div class="flow-content"><strong>xemac_add()</strong> → <code>init_emacps()</code> → <code>detect_phy()</code> → <code>phy_setup_emacps()</code> → <strong>get_Realtek_phy_speed()</strong><br>
+      ↳ PHY 주소 스캔 (31→1), RTL8211E addr 1 발견, 오토네고 수행 — <span style="color:var(--warn)">Issue 2, 3 발생</span></div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-line"><div class="flow-dot ok"></div><div class="flow-connector"></div></div>
+      <div class="flow-content"><strong>netif_set_default() / netif_set_up()</strong> — 네트워크 인터페이스 활성화</div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-line"><div class="flow-dot warn"></div><div class="flow-connector"></div></div>
+      <div class="flow-content"><strong>dhcp_start()</strong> + 대기 루프 — 240 × 50ms = 12초 DHCP 대기 — <span style="color:var(--warn)">Issue 4 발생 (타이머 무한 블록)</span></div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-line"><div class="flow-dot ok"></div><div class="flow-connector"></div></div>
+      <div class="flow-content"><strong>DHCP Timeout</strong> → 고정 IP 192.168.1.10 설정 → IP 출력</div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-line"><div class="flow-dot ok"></div><div class="flow-connector"></div></div>
+      <div class="flow-content"><strong>start_application()</strong> — TCP PCB 생성, 포트 7 바인드, listen</div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-line"><div class="flow-dot ok"></div></div>
+      <div class="flow-content"><strong>메인 루프</strong> — xemacif_input() 폴링 + TcpFastTmrFlag / TcpSlowTmrFlag 처리 → 클라이언트 접속 시 <code>recv_callback()</code> → <code>tcp_write()</code> echo</div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       4. 문제 1: UART 출력 안됨
+  ══════════════════════════════════════════ -->
+  <div class="section-title"><div class="icon">🐛</div>4. 발생한 문제와 해결 과정</div>
+
+  <div class="issue">
+    <div class="issue-header">
+      <div class="issue-num red">1</div>
+      <div>
+        <div class="issue-title">UART 출력이 전혀 없음 (xil_printf 동작 안 함)</div>
+        <div style="color:var(--muted);font-size:0.85rem;margin-top:0.2rem">Serial Monitor 연결 후 아무것도 출력되지 않음</div>
+      </div>
+    </div>
+    <div class="issue-body">
+      <div class="issue-section">
+        <span class="tag err">증상</span>
+        <p>시리얼 모니터를 연결해도 <code>xil_printf</code> 출력이 전혀 나타나지 않는다.</p>
+      </div>
+      <div class="issue-section">
+        <span class="tag cause">원인 분석</span>
+        <p>ZYBO Z7-20의 USB 연결은 두 개의 COM 포트를 생성한다.</p>
+        <table>
+          <tr><th>포트</th><th>용도</th><th>설명</th></tr>
+          <tr><td>첫 번째 COM</td><td>JTAG/프로그래밍</td><td>Vitis 다운로드용, 콘솔 아님</td></tr>
+          <tr><td><strong>두 번째 COM</strong></td><td><strong>UART1 콘솔</strong></td><td><code>xil_printf</code> 출력됨</td></tr>
+        </table>
+        <p style="margin-top:0.5rem">BSP 설정(<code>bspconfig.h</code>)에서 <code>STDOUT_BASEADDRESS = 0xE0001000</code> (PS UART1), baud rate 115200이 확인됨.</p>
+      </div>
+      <div class="issue-section">
+        <span class="tag fix">해결</span>
+        <p><strong>두 번째 COM 포트</strong>로 연결, <strong>Baud Rate 115200</strong>으로 설정</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       문제 2: Phy setup error
+  ══════════════════════════════════════════ -->
+  <div class="issue">
+    <div class="issue-header">
+      <div class="issue-num red">2</div>
+      <div>
+        <div class="issue-title">Phy setup error / Phy setup failure init_emacps</div>
+        <div style="color:var(--muted);font-size:0.85rem;margin-top:0.2rem">PHY 초기화 실패로 네트워크 인터페이스 추가 불가</div>
+      </div>
+    </div>
+    <div class="issue-body">
+      <div class="issue-section">
+        <span class="tag err">에러 출력</span>
+        <pre>-----lwIP TCP echo server ------
+TCP packets sent to port 6001 will be echoed back
+Start PHY autonegotiation
+Waiting for PHY to complete autonegotiation.
+autonegotiation complete
+Phy setup error
+Phy setup failure init_emacps</pre>
+      </div>
+      <div class="issue-section">
+        <span class="tag cause">원인 분석</span>
+        <p>오토네고 완료 후 <strong>RTL8211E reg17 (PHY Specific Status Register)</strong> bit10을 읽어 속도를 판단하는데, 이 레지스터가 계속 <code>0x0000</code>을 반환했다.</p>
+        <p style="margin-top:0.5rem">원인은 두 가지가 복합적으로 작용했다:</p>
+        <ul style="margin-top:0.5rem;padding-left:1.2rem;">
+          <li style="margin-bottom:0.4rem"><strong>IEEE reg1 bit5 래치-하이 동작:</strong> FSBL(부트로더)이 PHY 오토네고를 수행한 후 이미 bit5(Autoneg Complete)가 set된 상태로 남는다. 이후 소프트웨어 리셋을 해도 이 래치값이 남아있어, 코드가 오토네고를 기다리지 않고 즉시 통과한다.</li>
+          <li><strong>reg17 타이밍 문제:</strong> 오토네고 완료 직후 즉시 reg17을 읽으면 값이 아직 업데이트되지 않아 0x0000이 반환된다.</li>
+        </ul>
+      </div>
+      <div class="issue-section">
+        <span class="tag fix">1차 수정 시도</span>
+        <p><code>get_Realtek_phy_speed()</code>에서 오토네고 완료 후 <code>sleep(1)</code> 추가. 그러나 여전히 reg17 = 0x0000.</p>
+      </div>
+      <div class="issue-section">
+        <span class="tag fix">2차 수정 (래치 클리어)</span>
+        <pre>/* reg1 첫 읽기로 래치 클리어, 값 버림 */
+XEmacPs_PhyRead(xemacpsp, phy_addr, IEEE_STATUS_REG_OFFSET, &status);
+status = 0;  /* 강제로 0으로 초기화 */
+sleep(1);    /* 실제 오토네고 대기 */
+
+/* 이제 진짜 오토네고 완료를 기다림 */
+while ( !(status & IEEE_STAT_AUTONEGOTIATE_COMPLETE) ) {
+    sleep(1);
+    timeout_counter++;
+    if (timeout_counter == 10) { return XST_FAILURE; }
+    XEmacPs_PhyRead(..., IEEE_STATUS_REG_OFFSET, &status);
+}</pre>
+        <p>결과: <code>PHY_ID1=0x001C</code> (RTL 확인), MDIO 통신 동작 확인. 그러나 여전히 reg17 = 0x0000.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       문제 3: reg17 = 0x0000 지속
+  ══════════════════════════════════════════ -->
+  <div class="issue">
+    <div class="issue-header">
+      <div class="issue-num red">3</div>
+      <div>
+        <div class="issue-title">RTL8211E reg17 (PHY Specific Status) 지속적으로 0x0000</div>
+        <div style="color:var(--muted);font-size:0.85rem;margin-top:0.2rem">5회 재시도해도 벤더 전용 레지스터에서 속도 정보를 읽을 수 없음</div>
+      </div>
+    </div>
+    <div class="issue-body">
+      <div class="issue-section">
+        <span class="tag err">증상</span>
+        <pre>PHY_ID1=0x001C
+reg17=0x0000 (retry 1/5)
+reg17=0x0000 (retry 2/5)
+reg17=0x0000 (retry 3/5)
+reg17=0x0000 (retry 4/5)
+reg17=0x0000 (retry 5/5)
+Phy setup error</pre>
+      </div>
+      <div class="issue-section">
+        <span class="tag cause">근본 원인</span>
+        <p><strong>RTL8211E-VL의 reg17(벤더 전용 PHY Specific Status Register)은 ZYBO Z7-20 환경에서 신뢰할 수 없다.</strong> 이 레지스터는 PHY 칩 내부 타이밍에 의존적이며, RGMII-ID 모드와 Zynq GEM 조합에서는 값이 업데이트되지 않는 경우가 있다.</p>
+      </div>
+      <div class="issue-section">
+        <span class="tag fix">해결 방법 — IEEE 표준 레지스터 사용</span>
+        <p>벤더 전용 reg17 대신 IEEE 802.3 표준 오토네고 결과 레지스터를 사용해 속도를 판단한다.</p>
+        <table>
+          <tr><th>레지스터</th><th>이름</th><th>확인 비트</th><th>의미</th></tr>
+          <tr><td>reg10 (0x0A)</td><td>1000BASE-T LP Status</td><td>bit[11:10] (0x0C00)</td><td>상대방 1Gbps 지원</td></tr>
+          <tr><td>reg5 (0x05)</td><td>LP Base Ability</td><td>bit[8:7] (0x0180)</td><td>상대방 100Mbps 지원</td></tr>
+          <tr><td>reg5 (0x05)</td><td>LP Base Ability</td><td>bit[6:5] (0x0060)</td><td>상대방 10Mbps 지원</td></tr>
+        </table>
+        <pre>/* reg17 대신 IEEE 표준 레지스터로 속도 결정 */
+u16_t lp_1000, lp_100_10;
+XEmacPs_PhyRead(xemacpsp, phy_addr,
+        IEEE_PARTNER_ABILITIES_3_REG_OFFSET, &lp_1000);   /* reg10 */
+XEmacPs_PhyRead(xemacpsp, phy_addr,
+        IEEE_PARTNER_ABILITIES_1_REG_OFFSET, &lp_100_10); /* reg5  */
+
+if      (lp_1000 & 0x0C00)  return 1000;
+else if (lp_100_10 & 0x0180) return 100;
+else if (lp_100_10 & 0x0060) return 10;
+return XST_FAILURE;</pre>
+      </div>
+      <div class="issue-section">
+        <span class="tag result">결과</span>
+        <pre>RTL8211E lp_1000(reg10)=0x7800 lp_base(reg5)=0xCDE1
+link speed for phy address 1: 1000</pre>
+        <div class="callout ok">
+          <div>✅ <code>lp_1000 = 0x7800</code> → bit[11:10] (0x0C00) set 확인 → 1000Mbps 협상 성공</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       문제 4: 타이머 인터럽트 무한 블록
+  ══════════════════════════════════════════ -->
+  <div class="issue">
+    <div class="issue-header">
+      <div class="issue-num red">4</div>
+      <div>
+        <div class="issue-title">"link speed 1000" 이후 12초+ 대기해도 출력 없음 — 무한 블록</div>
+        <div style="color:var(--muted);font-size:0.85rem;margin-top:0.2rem">DHCP 타임아웃 카운터가 절대 감소하지 않는다</div>
+      </div>
+    </div>
+    <div class="issue-body">
+      <div class="issue-section">
+        <span class="tag err">증상</span>
+        <p><code>link speed for phy address 1: 1000</code> 이후 아무 출력이 없다. DHCP 타임아웃이 12초(240 × 50ms)인데 12초가 훨씬 넘어도 계속 멈춰있다.</p>
+      </div>
+      <div class="issue-section">
+        <span class="tag cause">원인 분석 — 3단계</span>
+
+        <p><strong>① main.c — platform_enable_interrupts() 미호출 (SDT 제외)</strong></p>
+        <pre>/* main.c */
+#ifndef SDT
+    platform_enable_interrupts();  /* SDT 모드에서는 이 코드가 컴파일 제외 */
+#endif</pre>
+        <p>비-SDT 모드에서는 이 함수가 <code>Xil_ExceptionEnableMask(XIL_EXCEPTION_IRQ)</code>를 호출해 CPU IRQ를 활성화한다. SDT 모드에서는 이 호출 자체가 없다.</p>
+
+        <br>
+        <p><strong>② platform.c — XTimer_SetInterval / XTimer_SetHandler 호출</strong></p>
+        <pre>/* platform.c (수정 전) */
+void init_timer() {
+    XTimer_SetInterval(50);                                      /* No-op! */
+    XTimer_SetHandler(TimerCounterHandler, 0, XINTERRUPT_DEFAULT_PRIORITY);  /* No-op! */
+}</pre>
+        <p>이 함수들이 내부에서 <code>InstancePtr->XTimer_TickInterval</code> 포인터를 호출하는데, 그 포인터가 <strong>NULL</strong>이다.</p>
+
+        <br>
+        <p><strong>③ xtimer_config.h — tick timer 완전 비활성화 (핵심 원인)</strong></p>
+        <pre>/* bsp/include/xtimer_config.h — BSP 자동 생성 파일 */
+/* #undef XTICKTIMER_IS_SCUTIMER */  ← scutimer tick 비활성화
+#define XTIMER_NO_TICK_TIMER   1     ← tick timer 없음으로 명시</pre>
+        <p>BSP가 <code>XILTIMER_tick_timer = None</code>으로 생성되어 <code>XTICKTIMER_IS_SCUTIMER</code>가 정의되지 않는다. 이로 인해 <code>scutimer.c</code>의 <code>#ifdef XTICKTIMER_IS_SCUTIMER</code> 블록 전체가 컴파일에서 제외된다. 결과적으로 <code>XTimer_SetInterval()</code>과 <code>XTimer_SetHandler()</code>는 함수 호출 시 아무것도 하지 않는다.</p>
+
+        <div class="callout err" style="margin-top:0.75rem">
+          <div>🔴 타이머 인터럽트가 전혀 설정되지 않아 <code>dhcp_timoutcntr</code>이 절대 감소하지 않고, DHCP 대기 루프가 무한 반복된다.</div>
+        </div>
+      </div>
+
+      <div class="issue-section">
+        <span class="tag fix">해결 — xiltimer 우회, SCU 타이머 직접 설정</span>
+        <p>xiltimer API를 완전히 우회하고 <code>XScuTimer_*</code> 드라이버를 직접 사용하도록 <code>platform.c</code>를 수정했다.</p>
+        <pre>/* platform.c (수정 후) — #ifdef SDT 블록 */
+#include "xscutimer.h"
+
+static XScuTimer ScuTimerInst;
+
+static void ScuTimerIntrHandler(void *CallBackRef)
+{
+    (void)CallBackRef;
+    XScuTimer_ClearInterruptStatus(&ScuTimerInst);  /* 인터럽트 클리어 필수 */
+    timer_callback();
+}
+
+void init_timer()
+{
+    XScuTimer_Config *ConfigPtr;
+
+    /* SCU 타이머 초기화 (SDT: DeviceId 대신 BaseAddr 사용) */
+    ConfigPtr = XScuTimer_LookupConfig(XPAR_SCUTIMER_BASEADDR);
+    XScuTimer_CfgInitialize(&ScuTimerInst, ConfigPtr, ConfigPtr->BaseAddr);
+    XScuTimer_EnableAutoReload(&ScuTimerInst);
+
+    /* 50ms 주기: SCU 타이머 = CPU_CLK/2, 50ms = (CPU_CLK/2) / 20 */
+    /* XPAR_CPU_CORE_CLOCK_FREQ_HZ = 666,666,687 → / 40 = 16,666,667 ticks */
+    XScuTimer_LoadTimer(&ScuTimerInst, XPAR_CPU_CORE_CLOCK_FREQ_HZ / 40);
+    XScuTimer_EnableInterrupt(&ScuTimerInst);
+    XScuTimer_Start(&ScuTimerInst);
+
+    /* GIC 등록 + CPU IRQ 활성화 (Xil_ExceptionEnable() 내부 호출) */
+    XSetupInterruptSystem(&ScuTimerInst,
+                          (Xil_InterruptHandler)ScuTimerIntrHandler,
+                          ScuTimerInst.Config.IntrId,
+                          ScuTimerInst.Config.IntrParent,
+                          XINTERRUPT_DEFAULT_PRIORITY);
+}</pre>
+        <div class="callout ok" style="margin-top:0.75rem">
+          <div>✅ <code>XSetupInterruptSystem</code> 내부에서 <code>XEnableIntrId()</code> + <code>Xil_ExceptionEnable()</code> 자동 호출 → GIC 인터럽트 활성화 + ARM CPU IRQ 활성화 완료</div>
+        </div>
+      </div>
+
+      <div class="issue-section">
+        <span class="tag result">결과</span>
+        <pre>DHCP Timeout
+Configuring default IP of 192.168.1.10
+Board IP: 192.168.1.10
+Netmask : 255.255.255.0
+Gateway : 192.168.1.1
+TCP echo server started @ port 7</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       5. 최종 동작 확인
+  ══════════════════════════════════════════ -->
+  <div class="section-title"><div class="icon">✅</div>5. 최종 동작 확인</div>
+
+  <div class="card">
+    <h3>완전한 시리얼 출력 (최종 정상 동작)</h3>
+    <pre>-----lwIP TCP echo server ------
+TCP packets sent to port 6001 will be echoed back
+
+Start PHY autonegotiation
+Waiting for PHY to complete autonegotiation.
+autonegotiation complete
+RTL8211E lp_1000(reg10)=0x3800 lp_base(reg5)=0xCDE1
+Using default Speed from design
+link speed for phy address 1: 1000
+DHCP Timeout
+Configuring default IP of 192.168.1.10
+Board IP: 192.168.1.10
+Netmask : 255.255.255.0
+Gateway : 192.168.1.1
+TCP echo server started @ port 7</pre>
+  </div>
+
+  <div class="card">
+    <h3>Packet Sender를 이용한 TCP Echo 테스트</h3>
+    <table>
+      <tr><th>항목</th><th>값</th></tr>
+      <tr><td>PC IP (이더넷)</td><td>192.168.1.100 (수동 설정)</td></tr>
+      <tr><td>보드 IP</td><td>192.168.1.10</td></tr>
+      <tr><td>포트</td><td>TCP 7</td></tr>
+      <tr><td>전송 데이터</td><td>"Hello"</td></tr>
+      <tr><td>수신 데이터</td><td>"Hello" (echo 확인)</td></tr>
+      <tr><td>응답 시간</td><td>~1ms 이내</td></tr>
+    </table>
+    <div class="callout ok" style="margin-top:1rem">
+      <div>✅ Packet Sender 로그에서 <code>From IP: 192.168.1.10</code>으로부터 동일한 데이터가 반환됨 확인 — <strong>TCP Echo 완전 동작</strong></div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       6. 수정 요약
+  ══════════════════════════════════════════ -->
+  <div class="section-title"><div class="icon">📝</div>6. 수정 파일 요약</div>
+
+  <div class="card">
+    <h3>수정 1 — xemacpsif_physpeed.c : get_Realtek_phy_speed()</h3>
+    <table>
+      <tr><th>항목</th><th>수정 전</th><th>수정 후</th></tr>
+      <tr><td>래치 클리어</td><td>없음</td><td>첫 번째 reg1 읽기 후 status=0 강제 초기화</td></tr>
+      <tr><td>오토네고 대기</td><td>즉시 완료로 잘못 판단</td><td>sleep(1) × 최대 10회 실제 대기</td></tr>
+      <tr><td>속도 판단</td><td>reg17 (벤더 전용, 신뢰 불가)</td><td>reg10 + reg5 (IEEE 표준 레지스터)</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3>수정 2 — platform.c : init_timer() SDT 경로</h3>
+    <table>
+      <tr><th>항목</th><th>수정 전</th><th>수정 후</th></tr>
+      <tr><td>타이머 설정</td><td>XTimer_SetInterval(50) — No-op</td><td>XScuTimer_* 직접 호출</td></tr>
+      <tr><td>인터럽트 핸들러</td><td>XTimer_SetHandler() — No-op</td><td>XSetupInterruptSystem() 직접 호출</td></tr>
+      <tr><td>CPU IRQ 활성화</td><td>미실행</td><td>XSetupInterruptSystem 내부에서 자동 호출</td></tr>
+      <tr><td>인터럽트 클리어</td><td>없음</td><td>ScuTimerIntrHandler에서 XScuTimer_ClearInterruptStatus()</td></tr>
+    </table>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       7. 핵심 개념 정리
+  ══════════════════════════════════════════ -->
+  <div class="section-title"><div class="icon">💡</div>7. 핵심 개념 정리</div>
+
+  <div class="summary-grid">
+    <div class="summary-card">
+      <div class="s-icon">🔌</div>
+      <div>
+        <div class="s-title">SDT 빌드 플로우</div>
+        <div class="s-desc">Vitis 2024.2 신규 방식. -DSDT 플래그로 기존 코드 대부분이 #ifndef SDT로 제외됨. BSP는 Device Tree 기반으로 자동 생성되며 직접 수정 시 재빌드 시 덮어써질 수 있다.</div>
+      </div>
+    </div>
+    <div class="summary-card">
+      <div class="s-icon">⚡</div>
+      <div>
+        <div class="s-title">IEEE reg1 래치-하이 동작</div>
+        <div class="s-desc">bit5(Autoneg Complete)는 래치-하이 비트. FSBL이 남긴 값이 남아 소프트웨어 리셋 후에도 완료된 것처럼 보임. 반드시 한 번 읽어서 클리어한 후 다시 폴링해야 한다.</div>
+      </div>
+    </div>
+    <div class="summary-card">
+      <div class="s-icon">📡</div>
+      <div>
+        <div class="s-title">RTL8211E reg17 비신뢰성</div>
+        <div class="s-desc">ZYBO Z7-20 + Zynq GEM + RGMII-ID 조합에서 RTL8211E의 벤더 전용 reg17이 0을 반환하는 문제. IEEE 표준 레지스터(reg5/reg10)로 대체하면 안정적으로 속도 판단 가능.</div>
+      </div>
+    </div>
+    <div class="summary-card">
+      <div class="s-icon">⏱️</div>
+      <div>
+        <div class="s-title">SCU 타이머 직접 제어</div>
+        <div class="s-desc">xiltimer의 tick_timer가 None으로 설정된 경우 XTimer_SetInterval/SetHandler는 No-op. XScuTimer_* 드라이버를 직접 사용해 50ms 인터럽트를 설정해야 한다. SCU 타이머 클록 = CPU_CLK/2.</div>
+      </div>
+    </div>
+    <div class="summary-card">
+      <div class="s-icon">🔗</div>
+      <div>
+        <div class="s-title">XSetupInterruptSystem</div>
+        <div class="s-desc">SDT 모드의 인터럽트 설정 통합 API. GIC 핸들러 연결 + GIC에서 해당 인터럽트 활성화 + Xil_ExceptionEnable()로 CPU IRQ 활성화까지 한 번에 처리한다.</div>
+      </div>
+    </div>
+    <div class="summary-card">
+      <div class="s-icon">🌐</div>
+      <div>
+        <div class="s-title">lwIP RAW API Echo 구조</div>
+        <div class="s-desc">recv_callback()에서 수신 pbuf를 tcp_write()로 그대로 전송. 메인 루프에서 xemacif_input()으로 패킷 폴링, TcpFastTmrFlag/TcpSlowTmrFlag로 TCP 타이머 관리.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       8. 다음 단계
+  ══════════════════════════════════════════ -->
+  <div class="section-title"><div class="icon">🚀</div>8. 다음 단계 (Ethernet Callback 구현)</div>
+
+  <div class="card">
+    <h3>recv_callback() 수정 포인트</h3>
+    <p>현재 <code>echo.c</code>의 <code>recv_callback()</code>에서 수신 데이터를 그대로 되돌려 보낸다. 여기를 수정하면 원하는 Ethernet 콜백 로직을 구현할 수 있다.</p>
+    <pre>/* echo.c : recv_callback() — 현재 코드 */
+err_t recv_callback(void *arg, struct tcp_pcb *tpcb,
+                    struct pbuf *p, err_t err)
+{
+    if (!p) { tcp_close(tpcb); return ERR_OK; }
+
+    tcp_recved(tpcb, p->len);   /* 수신 확인 */
+
+    /* ↓ 이 부분을 원하는 로직으로 교체 */
+    if (tcp_sndbuf(tpcb) > p->len)
+        err = tcp_write(tpcb, p->payload, p->len, 1);  /* echo */
+
+    pbuf_free(p);
+    return ERR_OK;
+}</pre>
+    <div class="callout" style="margin-top:0.75rem">
+      <div>💡 <code>p->payload</code>: 수신 데이터 포인터 / <code>p->len</code>: 데이터 길이. 수신된 데이터를 파싱해서 다른 처리(GPIO 제어, 센서 데이터 전송 등)를 추가할 수 있다.</div>
+    </div>
+  </div>
+
+</div><!-- end .container -->
+
+<footer>
+  ZYBO Z7-20 Ethernet lwIP Troubleshooting Report &nbsp;·&nbsp; Vitis 2024.2 SDT &nbsp;·&nbsp; 2026-06-09
+</footer>
+
+</body>
+</html>

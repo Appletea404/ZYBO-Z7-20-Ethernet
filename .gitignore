@@ -1,0 +1,58 @@
+# ================================================================
+# ZYBO Z7-20 Ethernet Project — .gitignore
+# Vitis 2024.2 SDT Build Flow
+#
+# [git에 보관하는 것]
+#   Vivado/  : *.xpr, srcs/sources_1/bd/ (블록 디자인)
+#   Vitis/lwip_echo_server/src/  : 앱 소스 (우리가 작성한 코드)
+#   Vitis/platform_ethernet/hw/  : XSA + 비트스트림
+#   patches/ : 수정한 BSP 파일 (xemacpsif_physpeed.c, bsp.yaml)
+# ================================================================
+
+# ────────────────────────────────────────────────────────────────
+# VIVADO — 합성/구현 결과물 (재생성 가능)
+# ────────────────────────────────────────────────────────────────
+Vivado/*.cache/
+Vivado/*.runs/
+Vivado/*.gen/
+Vivado/*.ip_user_files/
+Vivado/*.sim/
+Vivado/xsim.dir/
+Vivado/xvlog.pb
+Vivado/*.hw/
+Vivado/*.srcs/utils_1/
+
+# ────────────────────────────────────────────────────────────────
+# VITIS — IDE 임시 파일 / 빌드 출력물
+# ────────────────────────────────────────────────────────────────
+Vitis/_ide/
+Vitis/**/_ide/
+Vitis/**/compile_commands.json
+**/src/.cache/
+**/src/.clangd
+
+# ────────────────────────────────────────────────────────────────
+# VITIS — 플랫폼 생성 파일 (전부 Vitis 빌드 시 자동 생성)
+# ────────────────────────────────────────────────────────────────
+
+# 플랫폼 export
+Vitis/platform_ethernet/export/
+
+# FSBL 전체 (Vitis가 XSA로부터 자동 생성)
+Vitis/platform_ethernet/zynq_fsbl/
+
+# BSP 전체 (Vitis가 XSA + bsp.yaml로부터 자동 생성)
+# ※ bsp.yaml 과 수정된 드라이버는 patches/ 폴더에 보관
+Vitis/platform_ethernet/ps7_cortexa9_0/
+
+# 플랫폼 리소스
+Vitis/platform_ethernet/resources/
+
+# ────────────────────────────────────────────────────────────────
+# VITIS — 하드웨어 폴더 내 벤더 DTS 헤더 (Vitis 설치에 포함)
+# ────────────────────────────────────────────────────────────────
+Vitis/platform_ethernet/hw/sdt/include/
+Vitis/platform_ethernet/hw/sdt/.Xil/
+
+# PS7 초기화 HTML 리포트
+**/ps7_init.html
